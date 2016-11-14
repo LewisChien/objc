@@ -1,0 +1,62 @@
+@property的常用属性关键字
+  nonatomic、atomic、readonly、writeonly、readwrite、assign、retain、copy、strong、weak、unsafe_unretained、nonnull、nullable、null_resettable，看着挺多的，但是经常用的也就那几个。
+
+atomic: 默认关键字，也就是说如果什么都不写，默认就是这个。表示该属性是线程同步的。一般用不到，会影响性能。
+
+nonatomic: 非线程同步，基本都是用这个。
+
+readwrite: 默认关键字，表示可读可写。
+
+readonly: 只能读(get)，不能写(set)，当你希望属性不能被外界直接修改，但是可以访问时使用。
+
+writeonly: 只能写(set)，不能读(get)。一般用不到。
+
+assign: 默认关键字。非对象类型一般使用此关键字。
+
+retain: 对象的引用计数+1。ARC下已经不再使用此关键字，用strong代替。
+
+copy: 拷贝一个新的对象，新对象的引用计数+1，原对象不变。
+
+strong: 能够维持对象的生命。
+
+
+weak、assign的使用场景和异同
+不希望持有对象时使用weak关键字，比如代理，UI控件(看过很多代码里面UI控件都是使用的strong，其实没有必要，因为父视图会持有子视图，会维持子视图的生命，父视图一旦死了，子视图也就跟着死了)，避免循环引用的__weak等。 weak, assign都不会影响对象的引用计数。当一个对象的引用计数为0时，所有指向该对象的weak属性指针会被自动设置为nil，而assign属性不会，如果对象被释放了，此时再进行访问，程序崩溃。下面来验证一下:
+
+@interface ViewController ()
+
+@property (nonatomic, weak)   NSArray *array_weak;
+@property (nonatomic, assign) NSArray *array_assign;
+
+@end
+
+@implementation ViewController
+
+- (void)viewDidLoad {
+    [super viewDidLoad];
+
+    NSArray *array_temp = @[@"哈哈"];
+    self.array_weak = array;
+    self.array_assign = array;
+}
+
+- (void)touchesBegan:(NSSet *)touches withEvent:(UIEvent *)event {
+    NSLog(@"array_weak - 地址:%p, 内容:%@", self.array_weak, self.array_weak);
+    NSLog(@"array_assign - 地址:%p, 内容:%@", self.array_assign, self.array_assign);
+}
+
+在viewDidLoad里面创建了一个临时的NSArray对象，用weak和assign指针指向这个对象。然后点击屏幕的时候分别打印weak和assign属性的地址和内容，运行结果:array_weak - 地址:0x0, 内容:(null) 
+
+从结果可以看出array_weak有打印信息，已经自动指向nil，程序没有挂掉。但是array_assign并没有打印信息，程序执行到这里就挂了。从图中也可以看出错误所在，BAD_ACCESS错误，即是野指针。很好的验证了上面的说法。
+
+weak和unsafe_unretained
+
+unsafe_unretained从命名就可以看出意义所在，unsafe即是不会自动设置为nil，如果对象被释放了，再进行访问，程序会crash；unretained与weak类似，不会影响对象的引用计数。由于在iOS4下，还没有支持weak，所以如果在需要使用weak的场景(比如delegate)，使用unsafe_unretained。这里就不验证了，验证方法跟上面差不多，有兴趣可以自行验证。
+
+不要将copy用到NSMutableString，NSMutableArray，NSMutableDictionary等可变对象上，除非有特别的需求。
+
+nonnull、nullable、null_resettable
+
+这三个属性关键字是WWDC2015中介绍的OC新特性，与Swift中的?和!类似，算是一个简版的optional。nonnull就是说该属性不为nil，必须有值。相反，nullable表示可选的，可以为nil，类似Swift中的?。null_resettable表示setter是nullable，可选的，但是getter是nonnull，一定会有值返回。
+    [self.mutableArray_copy addObject:@"呵呵"];
+}
